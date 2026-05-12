@@ -1,0 +1,25 @@
+{
+  "nodes": [],
+  "edges": [
+    {
+      "source": "terminal-1778610794366",
+      "target": "note-1778612036233",
+      "animated": true,
+      "style": {
+        "stroke": "#3b82f6",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__terminal-1778610794366-note-1778612036233"
+    },
+    {
+      "source": "note-1778612036233",
+      "target": "agent-1778612046780",
+      "animated": true,
+      "style": {
+        "stroke": "#3b82f6",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__note-1778612036233-agent-1778612046780"
+    }
+  ]
+}

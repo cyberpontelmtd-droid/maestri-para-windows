@@ -1,0 +1,37 @@
+# Dependências
+node_modules/
+**/node_modules/
+
+# Chave de API — NUNCA commitar
+backend/.env
+backend/.env.local
+.env
+.env.*
+
+# Build
+frontend/dist/
+backend/dist/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Claude Code (config local de dev)
+.claude/
+
+# Conteúdo gerado pelo usuário (notas pessoais)
+vault/*.md
