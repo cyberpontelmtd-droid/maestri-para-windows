@@ -1,6 +1,6 @@
-# Nogle Mestre
+# Maestri Windows
 
-Bem-vindo ao **Nogle Mestre**, um ambiente de trabalho visual e infinito (Canvas) para orquestrar múltiplos Agentes de Inteligência Artificial de forma intuitiva, inspirado na arquitetura Maestro.
+Bem-vindo ao **Maestri Windows**, um ambiente de trabalho visual e infinito (Canvas) para orquestrar múltiplos Agentes de Inteligência Artificial de forma intuitiva, inspirado na arquitetura Maestro.
 
 Em vez de usar scripts invisíveis de terminal para gerenciar seus agentes, aqui você **desenha o fluxo de pensamento** conectando Notas e Agentes com fios!
 
@@ -49,7 +49,7 @@ Aguarde cada um terminar antes de rodar o próximo.
 
 ### Passo 3 — Configurar a chave de API da Anthropic
 
-O Alcune Mestre usa o Claude (IA da Anthropic) para processar as tarefas dos Agentes. Para isso você precisa de uma chave de API.
+O Maestri Windows usa o Claude (IA da Anthropic) para processar as tarefas dos Agentes. Para isso você precisa de uma chave de API.
 
 **Como obter a chave:**
 

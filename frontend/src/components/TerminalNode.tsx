@@ -35,7 +35,7 @@ export default function TerminalNode({ id, data, selected }: NodeProps) {
     const ws = new WebSocket('ws://localhost:3001');
     wsRef.current = ws;
 
-    ws.onopen = () => term.writeln('\x1b[32m[Algumas mestre — conectado]\x1b[0m');
+    ws.onopen = () => term.writeln('\x1b[32m[Maestri Windows — conectado]\x1b[0m');
     ws.onmessage = e => term.write(e.data);
     ws.onerror = () => term.writeln('\x1b[31m[Erro de conexão]\x1b[0m');
     ws.onclose = () => term.writeln('\x1b[31m[Desconectado]\x1b[0m');

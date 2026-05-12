@@ -1,5 +1,5 @@
 @echo off
-title Nogle Mestre - Iniciador
+title Maestri Windows - Iniciador
 color 0B
 
 echo Iniciando o Servidor (Backend)...

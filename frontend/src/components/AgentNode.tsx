@@ -13,7 +13,7 @@ const MODELS = [
 export default function AgentNode({ id, data, selected }: NodeProps) {
   const { setNodes, getEdges, getNodes } = useReactFlow();
   const [systemPrompt, setSystemPrompt] = useState(
-    (data.systemPrompt as string) || 'Você é um agente inteligente do Nogle Mestre.'
+    (data.systemPrompt as string) || 'Você é um agente inteligente do Maestri Windows.'
   );
   const [model, setModel] = useState((data.model as string) || 'claude-sonnet-4-6');
   const [isRunning, setIsRunning] = useState(false);
