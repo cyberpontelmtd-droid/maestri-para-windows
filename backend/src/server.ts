@@ -230,6 +230,175 @@ app.post('/api/run-agent', async (req, res) => {
   }
 });
 
+// ── Entities ──────────────────────────────────────────────────────────────────
+
+app.post('/api/entities', (req, res) => {
+  const { folderName, displayName } = req.body;
+  if (!folderName) return res.status(400).json({ error: 'folderName required' });
+  const safe = (folderName as string).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const entityPath = path.join(vaultPath, safe);
+  const brainPath = path.join(entityPath, 'brain');
+  if (!fs.existsSync(entityPath)) {
+    fs.mkdirSync(entityPath, { recursive: true });
+    fs.mkdirSync(brainPath, { recursive: true });
+    const name = displayName || folderName;
+    fs.writeFileSync(
+      path.join(brainPath, '_persona.md'),
+      `# ${name}\n\n## Papel\nDescreva aqui o papel e responsabilidades de ${name}.\n\n## Especialidades\n- \n\n## Estilo de trabalho\n- \n`,
+      'utf-8',
+    );
+  }
+  res.json({ success: true, folderName: safe });
+});
+
+app.get('/api/entities/:name/path', (req, res) => {
+  const entityPath = path.join(vaultPath, req.params.name);
+  res.json({ brainPath: path.join(entityPath, 'brain'), vaultPath });
+});
+
+app.get('/api/entities/:name/brain/files', (req, res) => {
+  const brainPath = path.join(vaultPath, req.params.name, 'brain');
+  try {
+    const files = fs.existsSync(brainPath)
+      ? fs.readdirSync(brainPath).filter(f => f.endsWith('.md'))
+      : [];
+    res.json(files);
+  } catch {
+    res.status(500).json({ error: 'Failed to list brain files' });
+  }
+});
+
+app.get('/api/entities/:name/brain/:file', (req, res) => {
+  const { name, file } = req.params;
+  if (!file.endsWith('.md')) return res.status(400).json({ error: 'Only .md files' });
+  const filePath = path.join(vaultPath, name, 'brain', file);
+  if (!fs.existsSync(filePath)) return res.status(404).send('');
+  res.send(fs.readFileSync(filePath, 'utf-8'));
+});
+
+app.post('/api/entities/:name/brain/:file', (req, res) => {
+  const { name, file } = req.params;
+  if (!file.endsWith('.md')) return res.status(400).json({ error: 'Only .md files' });
+  const brainPath = path.join(vaultPath, name, 'brain');
+  if (!fs.existsSync(brainPath)) fs.mkdirSync(brainPath, { recursive: true });
+  fs.writeFileSync(path.join(brainPath, file), req.body.content || '', 'utf-8');
+  res.json({ success: true });
+});
+
+app.delete('/api/entities/:name/brain/:file', (req, res) => {
+  const { name, file } = req.params;
+  if (!file.endsWith('.md')) return res.status(400).json({ error: 'Only .md files' });
+  const filePath = path.join(vaultPath, name, 'brain', file);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  res.json({ success: true });
+});
+
+app.get('/api/entities/:name/notes', (req, res) => {
+  const entityPath = path.join(vaultPath, req.params.name);
+  try {
+    const files = fs.existsSync(entityPath)
+      ? fs.readdirSync(entityPath).filter(f => {
+          const fp = path.join(entityPath, f);
+          return f.endsWith('.md') && !fs.statSync(fp).isDirectory();
+        })
+      : [];
+    res.json(files);
+  } catch {
+    res.status(500).json({ error: 'Failed to list entity notes' });
+  }
+});
+
+app.get('/api/entities/:name/notes/:file', (req, res) => {
+  const { name, file } = req.params;
+  if (!file.endsWith('.md')) return res.status(400).json({ error: 'Only .md files' });
+  const filePath = path.join(vaultPath, name, file);
+  if (!fs.existsSync(filePath)) return res.status(404).send('');
+  res.send(fs.readFileSync(filePath, 'utf-8'));
+});
+
+app.post('/api/entities/:name/notes/:file', (req, res) => {
+  const { name, file } = req.params;
+  if (!file.endsWith('.md')) return res.status(400).json({ error: 'Only .md files' });
+  const entityPath = path.join(vaultPath, name);
+  if (!fs.existsSync(entityPath)) fs.mkdirSync(entityPath, { recursive: true });
+  fs.writeFileSync(path.join(entityPath, file), req.body.content || '', 'utf-8');
+  res.json({ success: true });
+});
+
+app.post('/api/entities/:name/agent-stream', async (req, res) => {
+  const { name } = req.params;
+  const { message, systemPrompt, model, saveToBrain } = req.body as {
+    message: string; systemPrompt?: string; model?: string; saveToBrain?: boolean;
+  };
+
+  if (!message?.trim()) return res.status(400).json({ error: 'message required' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const send = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+
+  try {
+    const brainPath = path.join(vaultPath, name, 'brain');
+    let brainContext = '';
+    if (fs.existsSync(brainPath)) {
+      for (const f of fs.readdirSync(brainPath).filter(f => f.endsWith('.md'))) {
+        brainContext += `### ${f}\n\n${fs.readFileSync(path.join(brainPath, f), 'utf-8')}\n\n---\n\n`;
+      }
+    }
+
+    const finalSystem = brainContext
+      ? `${systemPrompt || 'Você é um agente inteligente.'}\n\n---\n## Seu Cérebro (memória e conhecimentos):\n\n${brainContext}`
+      : (systemPrompt || 'Você é um agente inteligente.');
+
+    const stream = anthropic.messages.stream({
+      model: model || 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      system: finalSystem,
+      messages: [{ role: 'user', content: message }],
+    });
+
+    let fullText = '';
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        fullText += event.delta.text;
+        send({ text: event.delta.text });
+      }
+    }
+
+    let savedTo: string | null = null;
+    if (saveToBrain && fullText) {
+      if (!fs.existsSync(brainPath)) fs.mkdirSync(brainPath, { recursive: true });
+      const ts = new Date().toISOString().slice(0, 16).replace('T', '_').replace(/:/g, '-');
+      savedTo = `memoria-${ts}.md`;
+      fs.writeFileSync(
+        path.join(brainPath, savedTo),
+        `# Memória ${new Date().toLocaleDateString('pt-BR')}\n\n## Pergunta\n${message}\n\n## Resposta\n${fullText}`,
+        'utf-8',
+      );
+    }
+
+    send({ done: true, savedTo });
+  } catch (err: any) {
+    console.error('Entity agent stream error:', err);
+    send({ error: err.message });
+  }
+
+  res.end();
+});
+
+// ── Frontend estático (produção) ──────────────────────────────────────────────
+
+const frontendDist = path.resolve(__dirname, '../../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.use((_req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
+
 // ── HTTP + WebSocket server ───────────────────────────────────────────────────
 
 const server = app.listen(port, () => {

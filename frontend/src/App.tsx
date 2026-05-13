@@ -11,12 +11,15 @@ import {
 } from '@xyflow/react';
 import type { NodeChange, EdgeChange, Node, Edge, Connection } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { TerminalSquare, StickyNote, FolderTree, Bot, Type, Plus, Trash2, FolderOpen } from 'lucide-react';
+import { TerminalSquare, StickyNote, FolderTree, Bot, Type, Plus, Trash2, FolderOpen, Users } from 'lucide-react';
 import TerminalNode from './components/TerminalNode';
 import NoteNode from './components/NoteNode';
 import FileTreeNode from './components/FileTreeNode';
 import AgentNode from './components/AgentNode';
 import TextNode from './components/TextNode';
+import EntityNode from './components/EntityNode';
+
+const ENTITY_COLORS = ['#6366f1', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6'];
 import { getLayout, saveLayout, getWorkspaces, deleteWorkspace } from './api';
 
 const nodeTypes = {
@@ -25,6 +28,7 @@ const nodeTypes = {
   filetree: FileTreeNode,
   agent: AgentNode,
   text: TextNode,
+  entity: EntityNode,
 };
 
 const DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
@@ -33,6 +37,7 @@ const DEFAULT_SIZES: Record<string, { width: number; height: number }> = {
   filetree: { width: 280, height: 340 },
   agent: { width: 300, height: 280 },
   text: { width: 280, height: 200 },
+  entity: { width: 640, height: 480 },
 };
 
 // ── Workspace Sidebar ─────────────────────────────────────────────────────────
@@ -240,6 +245,19 @@ function App() {
             onClick={() => addNode('agent', { systemPrompt: 'Você é um agente inteligente.', model: 'claude-sonnet-4-6' })}
           >
             <Bot size={15} /> Agente
+          </button>
+          <button
+            className="ui-btn"
+            style={{ background: 'rgba(99, 102, 241, 0.2)', borderColor: 'rgba(99, 102, 241, 0.5)' }}
+            onClick={() => {
+              const name = window.prompt('Nome da Entidade (ex: TechLead, Backend, QA):')?.trim();
+              if (!name) return;
+              const folderName = name.replace(/[^a-zA-Z0-9_-]/g, '_');
+              const color = ENTITY_COLORS[Math.floor(Math.random() * ENTITY_COLORS.length)];
+              addNode('entity', { entityName: name, folderName, color });
+            }}
+          >
+            <Users size={15} /> Entidade
           </button>
         </div>
 

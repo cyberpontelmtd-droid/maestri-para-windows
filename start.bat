@@ -1,17 +1,26 @@
 @echo off
-title Maestri Windows - Iniciador
+title Maestri Windows
 color 0B
 
-echo Iniciando o Servidor (Backend)...
-cd "%~dp0\backend"
-start cmd /k "npm run dev"
+echo.
+echo  ╔══════════════════════════════════════╗
+echo  ║         MAESTRI WINDOWS              ║
+echo  ╚══════════════════════════════════════╝
+echo.
 
-timeout /t 3 >nul
-
-echo Iniciando a Interface (Frontend)...
+echo [1/2] Construindo o Frontend...
 cd "%~dp0\frontend"
-start cmd /k "npm run dev"
+call npm run build
+if errorlevel 1 (
+  echo ERRO: Falha ao construir o frontend.
+  pause
+  exit /b 1
+)
 
 echo.
-echo Tudo rodando! Pode acessar no seu navegador.
-pause
+echo [2/2] Iniciando o Servidor...
+cd "%~dp0\backend"
+echo.
+echo  Acesse em: http://localhost:3001
+echo.
+cmd /k "npm run dev"

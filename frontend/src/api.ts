@@ -115,6 +115,113 @@ export async function runAgentStream(
   }
 }
 
+// ── Entities ──────────────────────────────────────────────────────────────────
+
+export async function createEntity(folderName: string, displayName?: string): Promise<void> {
+  await fetch(`${API_ROOT}/entities`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folderName, displayName }),
+  });
+}
+
+export async function getEntityVaultPath(folderName: string): Promise<{ brainPath: string; vaultPath: string }> {
+  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/path`);
+  if (!res.ok) return { brainPath: '', vaultPath: '' };
+  return res.json();
+}
+
+export async function getBrainFiles(folderName: string): Promise<string[]> {
+  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/files`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function readBrainFile(folderName: string, filename: string): Promise<string> {
+  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/${encodeURIComponent(filename)}`);
+  if (!res.ok) return '';
+  return res.text();
+}
+
+export async function saveBrainFile(folderName: string, filename: string, content: string): Promise<void> {
+  await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/${encodeURIComponent(filename)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function deleteBrainFile(folderName: string, filename: string): Promise<void> {
+  await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getEntityNotes(folderName: string): Promise<string[]> {
+  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/notes`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function readEntityNote(folderName: string, filename: string): Promise<string> {
+  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/notes/${encodeURIComponent(filename)}`);
+  if (!res.ok) return '';
+  return res.text();
+}
+
+export async function saveEntityNote(folderName: string, filename: string, content: string): Promise<void> {
+  await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/notes/${encodeURIComponent(filename)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function runEntityAgentStream(
+  folderName: string,
+  message: string,
+  systemPrompt: string,
+  model: string,
+  saveToBrain: boolean,
+  onChunk: (text: string, accumulated: string) => void,
+  onDone: (savedTo?: string) => void,
+  onError: (msg: string) => void,
+): Promise<void> {
+  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/agent-stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, systemPrompt, model, saveToBrain }),
+  });
+
+  if (!res.ok || !res.body) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as any).error || 'Failed to start entity agent stream');
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let accumulated = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() ?? '';
+    for (const part of parts) {
+      const line = part.split('\n').find(l => l.startsWith('data: '));
+      if (!line) continue;
+      try {
+        const data = JSON.parse(line.slice(6));
+        if (data.error) { onError(data.error); return; }
+        if (data.text) { accumulated += data.text; onChunk(data.text, accumulated); }
+        if (data.done) { onDone(data.savedTo); return; }
+      } catch {}
+    }
+  }
+}
+
 // ── Legacy ─────────────────────────────────────────────────────────────────────
 
 export async function runAgent(inputFile: string, outputFile: string, systemPrompt: string): Promise<any> {
