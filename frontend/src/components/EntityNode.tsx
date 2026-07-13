@@ -10,6 +10,7 @@ import {
   X, TerminalSquare, FileText, Bot, Plus, Save,
   RefreshCw, Play, Square, CheckCircle2, AlertCircle,
   Copy, ExternalLink, ChevronLeft, Edit2, Check, Trash2,
+  Send,
 } from 'lucide-react';
 import {
   createEntity, getEntityVaultPath,
@@ -21,13 +22,17 @@ import {
 type Tab = 'terminal' | 'notes' | 'brain' | 'agent';
 
 const MODELS = [
-  { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' },
-  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
-  { id: 'claude-opus-4-7', label: 'Opus 4.7' },
+  { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7' },
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { id: 'llama3.2:3b', label: '🦙 Llama 3.2 3B (Local)' },
+  { id: 'nous-hermes2', label: '🔮 Nous Hermes 2 (Local)' },
 ];
 
 export default function EntityNode({ id, data, selected }: NodeProps) {
-  const { setNodes } = useReactFlow();
+  const { setNodes, getEdges, getNodes } = useReactFlow();
   const folderName = (data.folderName as string) || 'entity';
   const [entityName, setEntityName] = useState((data.entityName as string) || 'Entidade');
   const [editingName, setEditingName] = useState(false);
@@ -62,7 +67,7 @@ export default function EntityNode({ id, data, selected }: NodeProps) {
   const [brainPath, setBrainPath] = useState('');
 
   // Agent
-  const [model, setModel] = useState((data.model as string) || 'claude-sonnet-4-6');
+  const [model, setModel] = useState((data.model as string) || 'gemini-2.0-flash');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [userMessage, setUserMessage] = useState('');
   const [agentOutput, setAgentOutput] = useState('');
@@ -71,6 +76,9 @@ export default function EntityNode({ id, data, selected }: NodeProps) {
   const [agentStatus, setAgentStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [agentError, setAgentError] = useState('');
   const agentOutputRef = useRef<HTMLDivElement>(null);
+  const latestOutputRef = useRef('');
+  const [forwardTargets, setForwardTargets] = useState<Array<{ id: string; name: string; folderName: string }>>([]);
+  const [pendingRun, setPendingRun] = useState(false);
 
   // Create entity folder + load vault path on mount
   useEffect(() => {
@@ -106,7 +114,8 @@ export default function EntityNode({ id, data, selected }: NodeProps) {
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    const ws = new WebSocket('ws://localhost:3001');
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${wsProtocol}//${window.location.host}`);
     wsRef.current = ws;
     ws.onopen = () => term.writeln(`\x1b[32m[${entityName} — Terminal conectado]\x1b[0m`);
     ws.onmessage = e => term.write(e.data);
@@ -139,6 +148,19 @@ export default function EntityNode({ id, data, selected }: NodeProps) {
       agentOutputRef.current.scrollTop = agentOutputRef.current.scrollHeight;
     }
   }, [agentOutput]);
+
+  // Listen for pipeline forward events from other agents
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { targetNodeId, message } = (e as CustomEvent).detail;
+      if (targetNodeId !== id) return;
+      setActiveTab('agent');
+      setUserMessage(message);
+      setPendingRun(true);
+    };
+    window.addEventListener('agent-pipeline-forward', handler);
+    return () => window.removeEventListener('agent-pipeline-forward', handler);
+  }, [id]);
 
   const loadNotes = useCallback(async () => {
     const files = await getEntityNotes(folderName).catch(() => []);
@@ -214,14 +236,34 @@ export default function EntityNode({ id, data, selected }: NodeProps) {
     setAgentStatus('idle');
     setAgentError('');
     setAgentOutput('');
+    setForwardTargets([]);
 
     try {
       await runEntityAgentStream(
         folderName, userMessage, systemPrompt, model, saveToBrain,
-        (_chunk, accumulated) => setAgentOutput(accumulated),
+        (_chunk, accumulated) => {
+          setAgentOutput(accumulated);
+          latestOutputRef.current = accumulated;
+        },
         (savedTo) => {
           setAgentStatus('success');
           if (savedTo) loadBrainFiles();
+          // Detect downstream entity nodes and AUTO-FORWARD
+          const targets = getEdges()
+            .filter(e => e.source === id)
+            .map(e => getNodes().find(n => n.id === e.target))
+            .filter((n): n is NonNullable<typeof n> => !!n && n.type === 'entity')
+            .map(n => ({ id: n.id, name: n.data.entityName as string, folderName: n.data.folderName as string }));
+          setForwardTargets(targets);
+          // Auto-forward to all connected agents
+          targets.forEach(target => {
+            window.dispatchEvent(new CustomEvent('agent-pipeline-forward', {
+              detail: {
+                targetNodeId: target.id,
+                message: `[Encaminhado por ${entityName}]\n\n${latestOutputRef.current}`,
+              },
+            }));
+          });
           setTimeout(() => setAgentStatus('idle'), 4000);
         },
         (msg) => { setAgentError(msg); setAgentStatus('error'); },
@@ -233,6 +275,24 @@ export default function EntityNode({ id, data, selected }: NodeProps) {
       setIsRunning(false);
     }
   }, [folderName, userMessage, systemPrompt, model, saveToBrain, loadBrainFiles]);
+
+  // Auto-run when message arrives via pipeline (must be after runAgent definition)
+  useEffect(() => {
+    if (pendingRun && userMessage && !isRunning) {
+      setPendingRun(false);
+      runAgent();
+    }
+  }, [pendingRun, userMessage, isRunning, runAgent]);
+
+  const forwardToAgent = useCallback((target: { id: string; name: string }) => {
+    window.dispatchEvent(new CustomEvent('agent-pipeline-forward', {
+      detail: {
+        targetNodeId: target.id,
+        message: `[Encaminhado por ${entityName}]\n\n${agentOutput}`,
+      },
+    }));
+    setForwardTargets([]);
+  }, [agentOutput, entityName]);
 
   const copyBrainPath = useCallback(() => {
     navigator.clipboard.writeText(brainPath || `vault\\${folderName}\\brain`).then(() => {
@@ -496,6 +556,15 @@ export default function EntityNode({ id, data, selected }: NodeProps) {
               {agentStatus === 'success' && (
                 <div style={{ color: '#10b981', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, marginTop: 8 }}>
                   <CheckCircle2 size={12} /> {saveToBrain ? 'Salvo no Cérebro!' : 'Concluído!'}
+                </div>
+              )}
+              {forwardTargets.length > 0 && agentOutput && (
+                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {forwardTargets.map(t => (
+                    <div key={t.id} style={{ fontSize: 10, color: color, display: 'flex', alignItems: 'center', gap: 4, opacity: 0.8 }}>
+                      <Send size={10} /> Encaminhado para {t.name}
+                    </div>
+                  ))}
                 </div>
               )}
               {agentStatus === 'error' && (

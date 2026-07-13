@@ -5,9 +5,13 @@ import { Bot, Play, CheckCircle2, AlertCircle, X, Square } from 'lucide-react';
 import { runAgentStream } from '../api';
 
 const MODELS = [
-  { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5 (Rápido)' },
-  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6 (Equilibrado)' },
-  { id: 'claude-opus-4-7', label: 'Opus 4.7 (Poderoso)' },
+  { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (Rápido)' },
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Equilibrado)' },
+  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7 (Poderoso)' },
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Rápido)' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Poderoso)' },
+  { id: 'llama3.2:3b', label: '🦙 Llama 3.2 3B (Local)' },
+  { id: 'nous-hermes2', label: '🔮 Nous Hermes 2 (Local)' },
 ];
 
 export default function AgentNode({ id, data, selected }: NodeProps) {
@@ -15,7 +19,7 @@ export default function AgentNode({ id, data, selected }: NodeProps) {
   const [systemPrompt, setSystemPrompt] = useState(
     (data.systemPrompt as string) || 'Você é um agente inteligente do Maestri Windows.'
   );
-  const [model, setModel] = useState((data.model as string) || 'claude-sonnet-4-6');
+  const [model, setModel] = useState((data.model as string) || 'gemini-2.0-flash');
   const [isRunning, setIsRunning] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');

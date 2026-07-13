@@ -7,10 +7,14 @@ backend/.env
 backend/.env.local
 .env
 .env.*
+!.env.example
 
 # Build
 frontend/dist/
 backend/dist/
+
+# Dados de usuario (Postgres fica no volume do container; isto e o bind mount de arquivos)
+data/
 
 # TypeScript cache
 *.tsbuildinfo

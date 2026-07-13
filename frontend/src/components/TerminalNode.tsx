@@ -32,7 +32,8 @@ export default function TerminalNode({ id, data, selected }: NodeProps) {
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    const ws = new WebSocket('ws://localhost:3001');
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${wsProtocol}//${window.location.host}`);
     wsRef.current = ws;
 
     ws.onopen = () => term.writeln('\x1b[32m[Maestri Windows — conectado]\x1b[0m');

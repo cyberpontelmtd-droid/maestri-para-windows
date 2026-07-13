@@ -1,16 +1,46 @@
-export const API_BASE = 'http://localhost:3001/api/vault';
-export const API_ROOT = 'http://localhost:3001/api';
+export const API_BASE = '/api/vault';
+export const API_ROOT = '/api';
+
+// Todo fetch precisa mandar o cookie de sessao. `fetchJson` centraliza isso e
+// trata 401 de forma consistente (o chamador decide o que fazer com o erro).
+async function fetchJson(input: string, init?: RequestInit): Promise<Response> {
+  return fetch(input, { ...init, credentials: 'include' });
+}
+
+// ── Auth ───────────────────────────────────────────────────────────────────────
+
+export async function login(username: string, password: string): Promise<void> {
+  const res = await fetchJson(`${API_ROOT}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as any).error || 'Login falhou');
+  }
+}
+
+export async function logout(): Promise<void> {
+  await fetchJson(`${API_ROOT}/auth/logout`, { method: 'POST' });
+}
+
+export async function me(): Promise<{ id: string; username: string } | null> {
+  const res = await fetchJson(`${API_ROOT}/auth/me`);
+  if (!res.ok) return null;
+  return res.json();
+}
 
 // ── Vault ──────────────────────────────────────────────────────────────────────
 
 export async function fetchFiles(): Promise<string[]> {
-  const res = await fetch(`${API_BASE}/files`);
+  const res = await fetchJson(`${API_BASE}/files`);
   if (!res.ok) throw new Error('Failed to fetch files');
   return res.json();
 }
 
 export async function readFile(filename: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/files/${encodeURIComponent(filename)}`);
+  const res = await fetchJson(`${API_BASE}/files/${encodeURIComponent(filename)}`);
   if (!res.ok) {
     if (res.status === 404) return '';
     throw new Error('Failed to read file');
@@ -19,7 +49,7 @@ export async function readFile(filename: string): Promise<string> {
 }
 
 export async function saveFile(filename: string, content: string): Promise<void> {
-  await fetch(`${API_BASE}/files/${encodeURIComponent(filename)}`, {
+  await fetchJson(`${API_BASE}/files/${encodeURIComponent(filename)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
@@ -30,14 +60,14 @@ export async function saveFile(filename: string, content: string): Promise<void>
 
 export async function getLayout(workspace = 'default'): Promise<any> {
   const qs = workspace !== 'default' ? `?workspace=${encodeURIComponent(workspace)}` : '';
-  const res = await fetch(`${API_ROOT}/layout${qs}`);
+  const res = await fetchJson(`${API_ROOT}/layout${qs}`);
   if (!res.ok) throw new Error('Failed to fetch layout');
   return res.json();
 }
 
 export async function saveLayout(layout: any, workspace = 'default'): Promise<void> {
   const qs = workspace !== 'default' ? `?workspace=${encodeURIComponent(workspace)}` : '';
-  await fetch(`${API_ROOT}/layout${qs}`, {
+  await fetchJson(`${API_ROOT}/layout${qs}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(layout),
@@ -47,19 +77,19 @@ export async function saveLayout(layout: any, workspace = 'default'): Promise<vo
 // ── Workspaces ─────────────────────────────────────────────────────────────────
 
 export async function getWorkspaces(): Promise<string[]> {
-  const res = await fetch(`${API_ROOT}/workspaces`);
+  const res = await fetchJson(`${API_ROOT}/workspaces`);
   if (!res.ok) throw new Error('Failed to fetch workspaces');
   return res.json();
 }
 
 export async function deleteWorkspace(name: string): Promise<void> {
-  await fetch(`${API_ROOT}/workspace/${encodeURIComponent(name)}`, { method: 'DELETE' });
+  await fetchJson(`${API_ROOT}/workspace/${encodeURIComponent(name)}`, { method: 'DELETE' });
 }
 
 // ── File tree ──────────────────────────────────────────────────────────────────
 
 export async function getWorkspaceTree(): Promise<any> {
-  const res = await fetch(`${API_ROOT}/workspace/tree`);
+  const res = await fetchJson(`${API_ROOT}/workspace/tree`);
   if (!res.ok) throw new Error('Failed to fetch tree');
   return res.json();
 }
@@ -75,7 +105,7 @@ export async function runAgentStream(
   onDone: () => void,
   onError: (msg: string) => void,
 ): Promise<void> {
-  const res = await fetch(`${API_ROOT}/run-agent-stream`, {
+  const res = await fetchJson(`${API_ROOT}/run-agent-stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ inputFiles, outputFile, systemPrompt, model }),
@@ -118,7 +148,7 @@ export async function runAgentStream(
 // ── Entities ──────────────────────────────────────────────────────────────────
 
 export async function createEntity(folderName: string, displayName?: string): Promise<void> {
-  await fetch(`${API_ROOT}/entities`, {
+  await fetchJson(`${API_ROOT}/entities`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ folderName, displayName }),
@@ -126,25 +156,25 @@ export async function createEntity(folderName: string, displayName?: string): Pr
 }
 
 export async function getEntityVaultPath(folderName: string): Promise<{ brainPath: string; vaultPath: string }> {
-  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/path`);
+  const res = await fetchJson(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/path`);
   if (!res.ok) return { brainPath: '', vaultPath: '' };
   return res.json();
 }
 
 export async function getBrainFiles(folderName: string): Promise<string[]> {
-  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/files`);
+  const res = await fetchJson(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/files`);
   if (!res.ok) return [];
   return res.json();
 }
 
 export async function readBrainFile(folderName: string, filename: string): Promise<string> {
-  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/${encodeURIComponent(filename)}`);
+  const res = await fetchJson(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/${encodeURIComponent(filename)}`);
   if (!res.ok) return '';
   return res.text();
 }
 
 export async function saveBrainFile(folderName: string, filename: string, content: string): Promise<void> {
-  await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/${encodeURIComponent(filename)}`, {
+  await fetchJson(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/${encodeURIComponent(filename)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
@@ -152,25 +182,25 @@ export async function saveBrainFile(folderName: string, filename: string, conten
 }
 
 export async function deleteBrainFile(folderName: string, filename: string): Promise<void> {
-  await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/${encodeURIComponent(filename)}`, {
+  await fetchJson(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/brain/${encodeURIComponent(filename)}`, {
     method: 'DELETE',
   });
 }
 
 export async function getEntityNotes(folderName: string): Promise<string[]> {
-  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/notes`);
+  const res = await fetchJson(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/notes`);
   if (!res.ok) return [];
   return res.json();
 }
 
 export async function readEntityNote(folderName: string, filename: string): Promise<string> {
-  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/notes/${encodeURIComponent(filename)}`);
+  const res = await fetchJson(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/notes/${encodeURIComponent(filename)}`);
   if (!res.ok) return '';
   return res.text();
 }
 
 export async function saveEntityNote(folderName: string, filename: string, content: string): Promise<void> {
-  await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/notes/${encodeURIComponent(filename)}`, {
+  await fetchJson(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/notes/${encodeURIComponent(filename)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
@@ -187,7 +217,7 @@ export async function runEntityAgentStream(
   onDone: (savedTo?: string) => void,
   onError: (msg: string) => void,
 ): Promise<void> {
-  const res = await fetch(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/agent-stream`, {
+  const res = await fetchJson(`${API_ROOT}/entities/${encodeURIComponent(folderName)}/agent-stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, systemPrompt, model, saveToBrain }),
@@ -225,7 +255,7 @@ export async function runEntityAgentStream(
 // ── Legacy ─────────────────────────────────────────────────────────────────────
 
 export async function runAgent(inputFile: string, outputFile: string, systemPrompt: string): Promise<any> {
-  const res = await fetch(`${API_ROOT}/run-agent`, {
+  const res = await fetchJson(`${API_ROOT}/run-agent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ inputFile, outputFile, systemPrompt }),

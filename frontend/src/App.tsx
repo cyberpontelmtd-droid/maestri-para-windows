@@ -11,16 +11,17 @@ import {
 } from '@xyflow/react';
 import type { NodeChange, EdgeChange, Node, Edge, Connection } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { TerminalSquare, StickyNote, FolderTree, Bot, Type, Plus, Trash2, FolderOpen, Users } from 'lucide-react';
+import { TerminalSquare, StickyNote, FolderTree, Bot, Type, Plus, Trash2, FolderOpen, Users, LogOut } from 'lucide-react';
 import TerminalNode from './components/TerminalNode';
 import NoteNode from './components/NoteNode';
 import FileTreeNode from './components/FileTreeNode';
 import AgentNode from './components/AgentNode';
 import TextNode from './components/TextNode';
 import EntityNode from './components/EntityNode';
+import LoginPage from './components/LoginPage';
 
 const ENTITY_COLORS = ['#6366f1', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6'];
-import { getLayout, saveLayout, getWorkspaces, deleteWorkspace } from './api';
+import { getLayout, saveLayout, getWorkspaces, deleteWorkspace, me, logout } from './api';
 
 const nodeTypes = {
   terminal: TerminalNode,
@@ -48,9 +49,11 @@ interface SidebarProps {
   onSwitch: (name: string) => void;
   onNew: () => void;
   onDelete: (name: string) => void;
+  username: string;
+  onLogout: () => void;
 }
 
-function WorkspaceSidebar({ workspaces, current, onSwitch, onNew, onDelete }: SidebarProps) {
+function WorkspaceSidebar({ workspaces, current, onSwitch, onNew, onDelete, username, onLogout }: SidebarProps) {
   return (
     <div className="workspace-sidebar">
       <div className="workspace-sidebar-header">
@@ -80,13 +83,40 @@ function WorkspaceSidebar({ workspaces, current, onSwitch, onNew, onDelete }: Si
       <button className="workspace-new-btn" onClick={onNew}>
         <Plus size={13} /> Novo Workspace
       </button>
+      <div
+        style={{
+          marginTop: 12,
+          paddingTop: 12,
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 6,
+        }}
+      >
+        <span style={{ fontSize: 12, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {username}
+        </span>
+        <button
+          onClick={onLogout}
+          title="Sair"
+          style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 4 }}
+        >
+          <LogOut size={14} />
+        </button>
+      </div>
     </div>
   );
 }
 
-// ── Main App ──────────────────────────────────────────────────────────────────
+// ── Canvas (autenticado) ──────────────────────────────────────────────────────
 
-function App() {
+interface CanvasProps {
+  username: string;
+  onLogout: () => void;
+}
+
+function Canvas({ username, onLogout }: CanvasProps) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -214,6 +244,11 @@ function App() {
     return <div style={{ color: 'white', padding: 20, background: '#0f1115', height: '100vh' }}>Carregando...</div>;
   }
 
+  const handleLogout = async () => {
+    await logout();
+    onLogout();
+  };
+
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex' }}>
       <WorkspaceSidebar
@@ -222,6 +257,8 @@ function App() {
         onSwitch={handleSwitchWorkspace}
         onNew={handleNewWorkspace}
         onDelete={handleDeleteWorkspace}
+        username={username}
+        onLogout={handleLogout}
       />
 
       <div style={{ flex: 1, position: 'relative' }}>
@@ -292,4 +329,40 @@ function App() {
   );
 }
 
-export default App;
+// ── Auth gate ─────────────────────────────────────────────────────────────────
+
+function AuthGate() {
+  const [status, setStatus] = useState<'checking' | 'anon' | 'authed'>('checking');
+  const [username, setUsername] = useState('');
+
+  useEffect(() => {
+    me().then(user => {
+      if (user) {
+        setUsername(user.username);
+        setStatus('authed');
+      } else {
+        setStatus('anon');
+      }
+    });
+  }, []);
+
+  const handleLoginSuccess = async () => {
+    const user = await me();
+    if (user) {
+      setUsername(user.username);
+      setStatus('authed');
+    }
+  };
+
+  if (status === 'checking') {
+    return <div style={{ color: 'white', padding: 20, background: '#0f1115', height: '100vh' }}>Carregando...</div>;
+  }
+
+  if (status === 'anon') {
+    return <LoginPage onSuccess={handleLoginSuccess} />;
+  }
+
+  return <Canvas username={username} onLogout={() => setStatus('anon')} />;
+}
+
+export default AuthGate;

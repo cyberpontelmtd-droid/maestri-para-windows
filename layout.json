@@ -1,25 +1,83 @@
 {
-  "nodes": [],
-  "edges": [
+  "nodes": [
     {
-      "source": "terminal-1778610794366",
-      "target": "note-1778612036233",
-      "animated": true,
-      "style": {
-        "stroke": "#3b82f6",
-        "strokeWidth": 2
+      "id": "filetree-1778702751378",
+      "type": "filetree",
+      "position": {
+        "x": -220.87662951456082,
+        "y": 93.10928284431549
       },
-      "id": "xy-edge__terminal-1778610794366-note-1778612036233"
+      "style": {
+        "width": 280,
+        "height": 400
+      },
+      "data": {},
+      "selected": false,
+      "dragging": false,
+      "measured": {
+        "width": 280,
+        "height": 400
+      }
     },
     {
-      "source": "note-1778612036233",
-      "target": "agent-1778612046780",
+      "id": "entity-1783961590412",
+      "type": "entity",
+      "position": {
+        "x": 78.80386735949452,
+        "y": 124.77933586602194
+      },
+      "style": {
+        "width": 640,
+        "height": 480
+      },
+      "data": {
+        "entityName": "Escravo 01",
+        "folderName": "Escravo_01",
+        "color": "#8b5cf6"
+      },
+      "measured": {
+        "width": 527,
+        "height": 468
+      },
+      "selected": true,
+      "dragging": false,
+      "width": 527,
+      "height": 468,
+      "resizing": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-hermes-executor",
+      "source": "entity-hermes",
+      "target": "entity-executor01",
+      "animated": true,
+      "style": {
+        "stroke": "#f59e0b",
+        "strokeWidth": 2
+      },
+      "label": "planeja → executa"
+    },
+    {
+      "id": "edge-executor-primal",
+      "source": "entity-executor01",
+      "target": "entity-1780492683741",
+      "animated": true,
+      "style": {
+        "stroke": "#10b981",
+        "strokeWidth": 2
+      },
+      "label": "executa → testa"
+    },
+    {
+      "source": "text-1783963663582",
+      "target": "entity-1783961590412",
       "animated": true,
       "style": {
         "stroke": "#3b82f6",
         "strokeWidth": 2
       },
-      "id": "xy-edge__note-1778612036233-agent-1778612046780"
+      "id": "xy-edge__text-1783963663582-entity-1783961590412"
     }
   ]
 }
