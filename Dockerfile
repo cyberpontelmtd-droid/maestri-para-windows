@@ -21,6 +21,10 @@ RUN npm run build
 FROM node:20-slim
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder-backend /app/backend/dist ./backend/dist
 COPY --from=builder-backend /app/backend/node_modules ./backend/node_modules
 COPY --from=builder-backend /app/backend/package.json ./backend/package.json
